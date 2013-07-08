@@ -7,26 +7,31 @@
 //  https://github.com/50pixels/FPPopover
 
 #import "FPTouchView.h"
+#import "ARCMacros.h"
 
 @implementation FPTouchView
 
 -(void)dealloc
 {
-    [_outsideBlock release];
-    [_insideBlock release];
-    [super dealloc];
+#ifdef FP_DEBUG
+    NSLog(@"FPTouchView dealloc");
+#endif
+    
+    SAFE_ARC_RELEASE(_insideBlock);
+    SAFE_ARC_RELEASE(_outsideBlock);
+    SAFE_ARC_SUPER_DEALLOC();
 }
 
 -(void)setTouchedOutsideBlock:(FPTouchedOutsideBlock)outsideBlock
 {
-    [_outsideBlock release];
+    SAFE_ARC_RELEASE(_outsideBlock);
     _outsideBlock = [outsideBlock copy];
 }
 
 -(void)setTouchedInsideBlock:(FPTouchedInsideBlock)insideBlock
 {
-    [_insideBlock release];
-    _insideBlock = [insideBlock copy];    
+    SAFE_ARC_RELEASE(_insideBlock);
+    _insideBlock = [insideBlock copy];
 }
 
 -(UIView*)hitTest:(CGPoint)point withEvent:(UIEvent *)event

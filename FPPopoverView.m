@@ -8,10 +8,21 @@
 
 
 #import "FPPopoverView.h"
+#import "ARCMacros.h"
 
 #define FP_POPOVER_ARROW_HEIGHT 11.0
 #define FP_POPOVER_ARROW_BASE 20.0
 #define FP_POPOVER_RADIUS 10.0
+
+//iVars
+@interface FPPopoverView()
+{
+    //default FPPopoverArrowDirectionUp
+    FPPopoverArrowDirection _arrowDirection;
+    UIView *_contentView;
+    UILabel *_titleLabel;
+}
+@end
 
 
 @interface FPPopoverView(Private)
@@ -24,16 +35,20 @@
 @synthesize relativeOrigin;
 @synthesize tint = _tint;
 @synthesize backgroundColor = _backgroundColor;
-@synthesize needs3DEffectBorder = _needs3DEffectBorder;
 @synthesize titleLabel = _titleLabel;
+@synthesize draw3dBorder = _draw3dBorder;
+@synthesize border = _border;
 
 -(void)dealloc
 {
-    self.title = nil;
-    [_contentView release];
-    [_titleLabel release];
-    [super dealloc];
+#ifdef FP_DEBUG
+    NSLog(@"FPPopoverView dealloc");
+#endif
+
+    SAFE_ARC_RELEASE(_titleLabel);
+    SAFE_ARC_SUPER_DEALLOC();
 }
+
 
 - (id)initWithFrame:(CGRect)frame
 {
@@ -50,12 +65,17 @@
 
         //to get working the animations
         self.contentMode = UIViewContentModeRedraw;
+
+        //3d border default is on
+        self.draw3dBorder = YES;
         
+        //border
+        self.border = YES;
         
         _titleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
         _titleLabel.backgroundColor = [UIColor clearColor];
         _titleLabel.textColor = [UIColor whiteColor];
-        _titleLabel.textAlignment = UITextAlignmentCenter;
+        _titleLabel.textAlignment = NSTextAlignmentCenter;
         _titleLabel.font = [UIFont fontWithName:@"HelveticaNeue-Bold" size:16];
         
         
@@ -64,7 +84,6 @@
         self.tint = FPPopoverDefaultTint;
         [super setBackgroundColor:[UIColor clearColor]];
         self.backgroundColor = nil;
-        self.needs3DEffectBorder = YES;
         
         [self addSubview:_titleLabel];
         [self setupViews];
@@ -88,11 +107,22 @@
     if(_contentView != contentView)
     {
         [_contentView removeFromSuperview];
-        [_contentView release];
-        _contentView = [contentView retain];
+        _contentView = contentView;
         [self addSubview:_contentView];
     }
     [self setupViews];
+}
+
+-(void)setBorder:(BOOL)border
+{
+    _border = border;
+    //NO BORDER
+    if(self.border == NO) {
+        _contentView.clipsToBounds = YES;
+        self.clipsToBounds = YES;
+        self.draw3dBorder = NO;
+        _contentView.layer.cornerRadius = FP_POPOVER_RADIUS;
+    }
 }
 
 #pragma mark drawing
@@ -106,6 +136,11 @@
     CGFloat aw = FP_POPOVER_ARROW_BASE/2.0; //is the 1/2 of the base of the arrow
     CGFloat radius = FP_POPOVER_RADIUS;
     CGFloat b = borderWidth;
+    
+    //NO BORDER
+    if(self.border == NO) {
+        b = 10.0;
+    }
     
     CGRect rect;
     if(direction == FPPopoverArrowDirectionUp)
@@ -132,14 +167,24 @@
         rect.origin.x = b;
         rect.origin.y = b;                
     }
-    else
+    else if(direction == FPPopoverArrowDirectionLeft)
     {
-        //Assuming direction == FPPopoverArrowDirectionLeft to suppress static analyzer warnings
         rect.size.width = w - ah - 2*b;
         rect.size.height = h - 2*b;
         rect.origin.x = ah + b;
-        rect.origin.y = b;                
+        rect.origin.y = b;
     }
+    
+    //NO ARROW
+    else
+    {
+        rect.size.width = w - 2*b;
+        rect.size.height = h - 2*b;
+        rect.origin.x = b;
+        rect.origin.y = b;        
+    }
+    
+    
     
     //the arrow will be near the origin
     CGFloat ax = self.relativeOrigin.x - aw; //the start of the arrow when UP or DOWN
@@ -151,9 +196,10 @@
     else if (ay +2*aw + 2*b > self.bounds.size.height) ay = self.bounds.size.height - 2*aw - 2*b;
     
     
+    
     //ROUNDED RECT
     // arrow UP
-    CGRect innerRect = CGRectInset(rect, radius, radius);
+    CGRect  innerRect = CGRectInset(rect, radius, radius);
 	CGFloat inside_right = innerRect.origin.x + innerRect.size.width;
 	CGFloat outside_right = rect.origin.x + rect.size.width;
 	CGFloat inside_bottom = innerRect.origin.y + innerRect.size.height;
@@ -162,6 +208,7 @@
 	CGFloat outside_top = rect.origin.y;
 	CGFloat outside_left = rect.origin.x;
 
+    
     
     //drawing the border with arrow
     CGMutablePathRef path = CGPathCreateMutable();
@@ -295,7 +342,12 @@
             colors[3] = colors[7] = 1.0;
         }        
     }
-    
+    else if(self.tint == FPPopoverWhiteTint)
+    {
+        colors[0] = colors[1] = colors[2] = 1.0;
+        colors[0] = colors[1] = colors[2] = 1.0;
+        colors[3] = colors[7] = 1.0;
+    }
     
 
     CGGradientRef gradient = CGGradientCreateWithColorComponents(colorSpace, colors, NULL, 2);
@@ -321,12 +373,13 @@
     //content fill
     CGPathRef contentPath = [self newContentPathWithBorderWidth:2.0 arrowDirection:_arrowDirection];
     
-    CGContextAddPath(ctx, contentPath);    
+    
+    CGContextAddPath(ctx, contentPath);
     CGContextClip(ctx);
 
     CGPoint start;
     CGPoint end;
-    if(_arrowDirection == FPPopoverArrowDirectionUp)
+    if(_arrowDirection == FPPopoverArrowDirectionUp || _arrowDirection == FPPopoverNoArrow)
     {
         start = CGPointMake(self.bounds.size.width/2.0, 0);
         end = CGPointMake(self.bounds.size.width/2.0,40);
@@ -360,6 +413,10 @@
         else if(self.tint == FPPopoverGreenTint)
         {
             CGContextSetRGBFillColor(ctx, 0.18, 0.30, 0.03, 1.0);
+        }
+        else if(self.tint == FPPopoverWhiteTint)
+        {
+            CGContextSetRGBFillColor(ctx, 1, 1, 1, 1.0);
         }
         
         
@@ -398,9 +455,8 @@
     CGContextStrokePath(ctx);
     CGPathRelease(externalBorderPath);
 
-    
-    if (self.needs3DEffectBorder) {
-        //3D border of the content view
+    //3D border of the content view
+    if(self.draw3dBorder) {
         CGRect cvRect = _contentView.frame;
         //firstLine
         CGContextSetRGBStrokeColor(ctx, 0.7, 0.7, 0.7, 1.0);
@@ -408,7 +464,7 @@
         //secondLine
         cvRect.origin.x -= 1; cvRect.origin.y -= 1; cvRect.size.height += 2; cvRect.size.width += 2;
         CGContextSetRGBStrokeColor(ctx, 0.4, 0.4, 0.4, 1.0);
-        CGContextStrokeRect(ctx, cvRect);
+        CGContextStrokeRect(ctx, cvRect);        
     }
     
     
@@ -461,6 +517,17 @@
 		if (self.title==nil || self.title.length==0) {
 			contentRect.origin = CGPointMake(10+ FP_POPOVER_ARROW_HEIGHT, 10);
 			contentRect.size = CGSizeMake(self.bounds.size.width-40, self.bounds.size.height-20);
+		}
+    }
+    
+    else if(_arrowDirection == FPPopoverNoArrow)
+    {
+        contentRect.origin = CGPointMake(10, 40);
+        contentRect.size = CGSizeMake(self.bounds.size.width-20, self.bounds.size.height-50);
+        _titleLabel.frame = CGRectMake(10, 10, self.bounds.size.width-20, 20);
+		if (self.title==nil || self.title.length==0) {
+			contentRect.origin = CGPointMake(10, 30);
+			contentRect.size = CGSizeMake(self.bounds.size.width-20, self.bounds.size.height-40);
 		}
     }
 

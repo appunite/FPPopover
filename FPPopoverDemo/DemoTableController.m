@@ -7,13 +7,13 @@
 //
 
 #import "DemoTableController.h"
-
+#import "FPViewController.h"
 @interface DemoTableController ()
 
 @end
 
 @implementation DemoTableController
-
+@synthesize delegate=_delegate;
 
 
 - (void)viewDidLoad
@@ -44,7 +44,7 @@
     
     if(cell == nil)
     {
-        cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:CellIdentifier] autorelease];
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:CellIdentifier];
     }
     cell.textLabel.text = [NSString stringWithFormat:@"cell %d",indexPath.row];
     
@@ -54,8 +54,14 @@
 
 #pragma mark - Table view delegate
 
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
-{
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    if([self.delegate respondsToSelector:@selector(selectedTableRow:)])
+    {
+        [self.delegate selectedTableRow:indexPath.row];
+    }
 }
+
+
+
 
 @end
