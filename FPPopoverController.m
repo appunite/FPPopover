@@ -210,6 +210,13 @@
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    // if contentSizeForViewInPopover is default
+    // i.e. it wasnt set explicitly to a desired in possible to display range
+    // then don't do anything, let popover handle size by itself
+    if (_viewController.contentSizeForViewInPopover.height < 1.f // default 0 in ios7
+        || _viewController.contentSizeForViewInPopover.height > 1025.f ) { // default 1100 in ios <=6.1
+        return;
+    }
     [self setContentSize:_viewController.contentSizeForViewInPopover];
 }
 
